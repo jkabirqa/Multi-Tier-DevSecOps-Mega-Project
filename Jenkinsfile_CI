@@ -9,7 +9,7 @@ pipeline {
     stages {
         stage('git-checkout') {
             steps {
-                git branch: 'dev', url: 'https://github.com/jkabirqa/Multi-Tier-DevSecOps-Mega-Project.git'
+                git branch: 'docker-build-deploy', url: 'https://github.com/jkabirqa/Multi-Tier-DevSecOps-Mega-Project.git'
             }
         }
          stage('fe compilation') {
@@ -51,6 +51,41 @@ pipeline {
          stage('trivy fS scan') {
             steps {
                 sh 'trivy fs --format table -o fs-report.html .'
+            }
+        }
+         stage('build & tag BE docker image') {
+            steps {
+                script{
+                    // This step should not normally be used in your script. Consult the inline help for details.
+                       withDockerRegistry(credentialsId: 'docker-creds') {
+                         dir('api'){
+                             sh 'docker build -t jkabirm/be:latest .'
+                             sh 'trivy image --format table -o be-image-report jkabirm/be:latest'
+                             sh 'docker push jkabirm/be:latest'
+                         }
+                    }
+                }
+            }
+        }
+        stage('build & tag FE docker image') {
+            steps {
+                script{
+                    // This step should not normally be used in your script. Consult the inline help for details.
+                       withDockerRegistry(credentialsId: 'docker-creds') {
+                         dir('client'){
+                             sh 'docker build -t jkabirm/fe:latest .'
+                             sh 'trivy image --format table -o fe-image-report jkabirm/fe:latest'
+                             sh 'docker push jkabirm/fe:latest'
+                         }
+                    }
+                }
+            }
+        }
+        stage('DOCKER deploy via Compose') {
+            steps {
+                script{
+                    sh 'docker-compose up -d'
+                }
             }
         }
     }
